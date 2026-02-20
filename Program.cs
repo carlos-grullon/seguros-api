@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using SegurosApi.Data;
@@ -8,11 +9,36 @@ using SegurosApi.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-var defaultConnection = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=seguros.db";
+static string NormalizeConnectionString(string raw)
+{
+    if (raw.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) ||
+        raw.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
+    {
+        var uri = new Uri(raw);
+        var userInfo = uri.UserInfo.Split(':', 2);
+        var username = userInfo.Length > 0 ? Uri.UnescapeDataString(userInfo[0]) : "";
+        var password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
+
+        var database = uri.AbsolutePath.Trim('/');
+        if (string.IsNullOrWhiteSpace(database))
+            database = "postgres";
+
+        var port = uri.IsDefaultPort ? 5432 : uri.Port;
+
+        return $"Host={uri.Host};Port={port};Database={database};Username={username};Password={password};Ssl Mode=Require;Trust Server Certificate=true";
+    }
+
+    return raw;
+}
+
+var defaultConnectionRaw = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=seguros.db";
+var defaultConnection = NormalizeConnectionString(defaultConnectionRaw);
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
-    if (defaultConnection.Contains("Host=", StringComparison.OrdinalIgnoreCase) ||
+    if (defaultConnectionRaw.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) ||
+        defaultConnectionRaw.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase) ||
+        defaultConnection.Contains("Host=", StringComparison.OrdinalIgnoreCase) ||
         defaultConnection.Contains("Username=", StringComparison.OrdinalIgnoreCase) ||
         defaultConnection.Contains("User Id=", StringComparison.OrdinalIgnoreCase))
     {
@@ -61,6 +87,11 @@ builder.Services.AddControllers();
 
 var app = builder.Build();
 
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
+
 // Ensure database is created and migrated
 using (var scope = app.Services.CreateScope())
 {
@@ -68,7 +99,10 @@ using (var scope = app.Services.CreateScope())
     db.Database.Migrate();
 }
 
-app.UseHttpsRedirection();
+if (app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseCors("Frontend");
 

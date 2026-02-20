@@ -136,6 +136,50 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     db.Database.Migrate();
+
+    if (db.Database.IsNpgsql())
+    {
+        db.Database.ExecuteSqlRaw(@"
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'Roles_RoleId_seq') THEN
+        CREATE SEQUENCE ""Roles_RoleId_seq"";
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'Roles'
+          AND column_name = 'RoleId'
+          AND column_default IS NULL
+    ) THEN
+        ALTER TABLE ""Roles"" ALTER COLUMN ""RoleId"" SET DEFAULT nextval('""Roles_RoleId_seq""');
+        ALTER SEQUENCE ""Roles_RoleId_seq"" OWNED BY ""Roles"".""RoleId"";
+    END IF;
+
+    PERFORM setval('""Roles_RoleId_seq""', COALESCE((SELECT MAX(""RoleId"") FROM ""Roles""), 0) + 1, false);
+
+    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'Users_UserId_seq') THEN
+        CREATE SEQUENCE ""Users_UserId_seq"";
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'Users'
+          AND column_name = 'UserId'
+          AND column_default IS NULL
+    ) THEN
+        ALTER TABLE ""Users"" ALTER COLUMN ""UserId"" SET DEFAULT nextval('""Users_UserId_seq""');
+        ALTER SEQUENCE ""Users_UserId_seq"" OWNED BY ""Users"".""UserId"";
+    END IF;
+
+    PERFORM setval('""Users_UserId_seq""', COALESCE((SELECT MAX(""UserId"") FROM ""Users""), 0) + 1, false);
+END $$;
+");
+    }
 }
 
 if (app.Environment.IsDevelopment())

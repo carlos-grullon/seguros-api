@@ -33,23 +33,14 @@ static string NormalizeConnectionString(string raw)
     return raw;
 }
 
-var defaultConnectionRaw = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=seguros.db";
+var defaultConnectionRaw = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(defaultConnectionRaw))
+    throw new InvalidOperationException("Missing connection string 'ConnectionStrings:DefaultConnection'. This project requires PostgreSQL.");
 var defaultConnection = NormalizeConnectionString(defaultConnectionRaw);
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
-    if (defaultConnectionRaw.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) ||
-        defaultConnectionRaw.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase) ||
-        defaultConnection.Contains("Host=", StringComparison.OrdinalIgnoreCase) ||
-        defaultConnection.Contains("Username=", StringComparison.OrdinalIgnoreCase) ||
-        defaultConnection.Contains("User Id=", StringComparison.OrdinalIgnoreCase))
-    {
-        options.UseNpgsql(defaultConnection);
-    }
-    else
-    {
-        options.UseSqlite(defaultConnection);
-    }
+    options.UseNpgsql(defaultConnection);
 });
 
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -72,14 +63,16 @@ builder.Services.AddCors(options =>
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        var issuer = builder.Configuration["Jwt:Issuer"] ?? "SegurosApi";
+        var audience = builder.Configuration["Jwt:Audience"] ?? "SegurosApi";
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
+            ValidIssuer = issuer,
+            ValidAudience = audience,
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? "YourSuperSecretKeyThatIsAtLeast32CharactersLong!"))
         };

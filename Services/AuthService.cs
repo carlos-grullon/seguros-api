@@ -26,17 +26,19 @@ public class AuthService : IAuthService
         if (!IsValidRole(normalizedRole))
             return null;
 
-        if (await _context.Users.AnyAsync(u => u.Email == request.Email, cancellationToken))
+        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+
+        if (await _context.Users.AnyAsync(u => u.Email.ToLower() == normalizedEmail, cancellationToken))
             return null;
 
         var role = await _context.Roles
-            .FirstOrDefaultAsync(r => r.RoleName == normalizedRole, cancellationToken);
+            .FirstOrDefaultAsync(r => r.RoleName.ToLower() == normalizedRole.ToLower(), cancellationToken);
         if (role is null)
             return null;
 
         var user = new User
         {
-            Email = request.Email.Trim(),
+            Email = normalizedEmail,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
             FirstName = request.FirstName.Trim(),
             LastName = request.LastName.Trim(),
@@ -51,9 +53,10 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponse?> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
+        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
         var user = await _context.Users
             .Include(u => u.Role)
-            .FirstOrDefaultAsync(u => u.Email == request.Email, cancellationToken);
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == normalizedEmail, cancellationToken);
         if (user is null)
             return null;
 

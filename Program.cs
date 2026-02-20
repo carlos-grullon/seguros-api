@@ -1,6 +1,8 @@
 using System.Text;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using SegurosApi.Data;
@@ -97,6 +99,32 @@ if (swaggerEnabled)
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.UseExceptionHandler(exceptionApp =>
+{
+    exceptionApp.Run(async context =>
+    {
+        var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        context.Response.ContentType = "application/problem+json";
+
+        var traceId = context.TraceIdentifier;
+        var title = "An unexpected error occurred.";
+
+        if (exception is not null)
+        {
+            app.Logger.LogError(exception, "Unhandled exception. TraceId: {TraceId}", traceId);
+        }
+
+        await context.Response.WriteAsJsonAsync(new ProblemDetails
+        {
+            Status = StatusCodes.Status500InternalServerError,
+            Title = title,
+            Extensions = { ["traceId"] = traceId }
+        });
+    });
+});
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {

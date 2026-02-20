@@ -170,6 +170,18 @@ BEGIN
     END IF;
 
     PERFORM setval('""Users_UserId_seq""', COALESCE((SELECT MAX(""UserId"") FROM ""Users""), 0) + 1, false);
+
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'Users'
+          AND column_name = 'CreatedAt'
+          AND data_type = 'text'
+    ) THEN
+        ALTER TABLE ""Users"" ALTER COLUMN ""CreatedAt"" TYPE timestamp with time zone
+            USING (""CreatedAt""::timestamptz);
+    END IF;
 END $$;
 ");
     }

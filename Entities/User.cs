@@ -11,4 +11,7 @@ public class User
 
     public int RoleId { get; set; }
     public Role Role { get; set; } = null!;
+
+    public ICollection<Policy> OwnedPolicies { get; set; } = [];
+    public ICollection<Policy> ManagedPolicies { get; set; } = [];
 }

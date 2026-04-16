@@ -12,6 +12,8 @@ public class ApplicationDbContext : DbContext
 
     public DbSet<User> Users => Set<User>();
     public DbSet<Role> Roles => Set<Role>();
+    public DbSet<Policy> Policies => Set<Policy>();
+    public DbSet<Claim> Claims => Set<Claim>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -34,6 +36,42 @@ public class ApplicationDbContext : DbContext
                 .WithMany(r => r.Users)
                 .HasForeignKey(e => e.RoleId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Policy>(entity =>
+        {
+            entity.HasKey(e => e.PolicyId);
+            entity.Property(e => e.PolicyNumber).HasMaxLength(30);
+            entity.HasIndex(e => e.PolicyNumber).IsUnique();
+            entity.Property(e => e.Type).HasMaxLength(20);
+            entity.Property(e => e.Status).HasMaxLength(20);
+            entity.Property(e => e.PremiumAmount).HasColumnType("numeric(10,2)");
+            entity.Property(e => e.Description).HasMaxLength(500);
+
+            entity.HasOne(e => e.Client)
+                .WithMany(u => u.OwnedPolicies)
+                .HasForeignKey(e => e.ClientId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Agent)
+                .WithMany(u => u.ManagedPolicies)
+                .HasForeignKey(e => e.AgentId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .IsRequired(false);
+        });
+
+        modelBuilder.Entity<Claim>(entity =>
+        {
+            entity.HasKey(e => e.ClaimId);
+            entity.Property(e => e.ClaimNumber).HasMaxLength(30);
+            entity.HasIndex(e => e.ClaimNumber).IsUnique();
+            entity.Property(e => e.Description).HasMaxLength(1000);
+            entity.Property(e => e.Status).HasMaxLength(20);
+
+            entity.HasOne(e => e.Policy)
+                .WithMany(p => p.Claims)
+                .HasForeignKey(e => e.PolicyId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // Seed the three roles

@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using JwtClaim = System.Security.Claims.Claim;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using SegurosApi.Data;
@@ -100,12 +101,12 @@ public class AuthService : IAuthService
 
         var claims = new[]
         {
-            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
-            new Claim(ClaimTypes.Email, email),
-            new Claim(ClaimTypes.Role, roleName),
-            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
-            new Claim(JwtRegisteredClaimNames.Email, email),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            new JwtClaim(ClaimTypes.NameIdentifier, userId.ToString()),
+            new JwtClaim(ClaimTypes.Email, email),
+            new JwtClaim(ClaimTypes.Role, roleName),
+            new JwtClaim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new JwtClaim(JwtRegisteredClaimNames.Email, email),
+            new JwtClaim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
         var token = new JwtSecurityToken(
